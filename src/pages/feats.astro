@@ -1,0 +1,537 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { featsData } from '../data/feats';
+
+const sortedFeats = [...featsData].sort((a, b) => 
+  a.name.localeCompare(b.name, 'ru')
+);
+
+const featTypes = {
+  'origin': 'Черта происхождения',
+  'general': 'Общая черта',
+  'fighting-style': 'Черта боевого стиля',
+  'epic': 'Эпическая черта'
+};
+
+const abilities = {
+  'STR': 'Сила',
+  'DEX': 'Ловкость',
+  'CON': 'Телосложение',
+  'INT': 'Интеллект',
+  'WIS': 'Мудрость',
+  'CHA': 'Харизма'
+};
+---
+
+<Layout title="D&D 5E Guide - Черты">
+  <div class="content">
+    <h1>Черты</h1>
+    
+    <div class="search-container">
+      <div class="search-controls">
+        <div class="search-input-container">
+          <input 
+            type="text" 
+            id="feat-search" 
+            placeholder="Поиск черт..."
+            class="search-input"
+          />
+          <div id="feats-counter" class="feats-counter">0/0</div>
+          <button id="clear-search" class="clear-search-button" style="display: none;">×</button>
+        </div>
+        <button id="filter-button" class="filter-button">
+          <span class="filter-icon">⚙</span>
+          Фильтры
+          <span id="filter-count" class="filter-count">0</span>
+        </button>
+      </div>
+
+      <div id="filter-popup" class="filter-popup">
+        <div class="filter-content">
+          <div class="filter-header">
+            <h3>Фильтры</h3>
+            <button class="close-button">×</button>
+          </div>
+          
+          <div class="filter-section">
+            <h4>Тип черты</h4>
+            <div class="checkbox-group">
+              {Object.entries(featTypes).map(([key, label]) => (
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    name="feat-type" 
+                    value={key} 
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div class="filter-section">
+            <h4>Повышение характеристик</h4>
+            <div class="checkbox-group">
+              {Object.entries(abilities).map(([key, label]) => (
+                <label class="checkbox-label">
+                  <input 
+                    type="checkbox" 
+                    name="ability-score" 
+                    value={key} 
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div class="filter-actions">
+          <button id="reset-filters" class="reset-button">Сбросить фильтры</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="feats-grid">
+      {sortedFeats.map(feat => (
+        <a href={`/feats/${feat.id}`} class="feat-card" data-feat-type={feat.type} data-abilities={feat.abilityScoreIncrease?.join(',')}>
+          <h3>{feat.name}</h3>
+          <span class="name-en">[{feat.nameEn}]</span>
+        </a>
+      ))}
+    </div>
+  </div>
+</Layout>
+
+<script>
+  function initializeFilters() {
+    const filterButton = document.getElementById('filter-button');
+    const filterPopup = document.getElementById('filter-popup');
+    const closeButton = document.querySelector('.close-button');
+    const searchInput = document.getElementById('feat-search') as HTMLInputElement;
+    const clearSearchButton = document.getElementById('clear-search');
+    const featsCounter = document.getElementById('feats-counter');
+    const featCards = document.querySelectorAll('.feat-card');
+    const typeCheckboxes = document.querySelectorAll('input[name="feat-type"]');
+    const abilityCheckboxes = document.querySelectorAll('input[name="ability-score"]');
+
+    // Load filters from localStorage
+    function loadFilters() {
+      const savedFilters = localStorage.getItem('featFilters');
+      if (savedFilters) {
+        const filters = JSON.parse(savedFilters);
+        
+        // Apply saved filters
+        Object.entries(filters).forEach(([filterType, values]) => {
+          if (Array.isArray(values)) {
+            values.forEach(value => {
+              const checkbox = document.querySelector(`input[name="${filterType}"][value="${value}"]`) as HTMLInputElement;
+              if (checkbox) checkbox.checked = true;
+            });
+          }
+        });
+        
+        updateFilterCount();
+        filterFeats();
+      }
+    }
+
+    // Save filters to localStorage
+    function saveFilters() {
+      const filters = {
+        'feat-type': Array.from(typeCheckboxes)
+          .filter((cb: Element) => (cb as HTMLInputElement).checked)
+          .map((cb: Element) => (cb as HTMLInputElement).value),
+        'ability-score': Array.from(abilityCheckboxes)
+          .filter((cb: Element) => (cb as HTMLInputElement).checked)
+          .map((cb: Element) => (cb as HTMLInputElement).value)
+      };
+      
+      localStorage.setItem('featFilters', JSON.stringify(filters));
+    }
+
+    // Update filter count display
+    function updateFilterCount() {
+      const activeFilters = 
+        document.querySelectorAll('input[name="feat-type"]:checked').length +
+        document.querySelectorAll('input[name="ability-score"]:checked').length;
+      
+      const filterCount = document.getElementById('filter-count');
+      if (filterCount) {
+        filterCount.textContent = activeFilters.toString();
+        filterCount.style.display = activeFilters > 0 ? 'flex' : 'none';
+      }
+      
+      if (filterButton) {
+        filterButton.classList.toggle('has-filters', activeFilters > 0);
+      }
+    }
+
+    function togglePopup() {
+      if (filterPopup) {
+        filterPopup.classList.toggle('show');
+      }
+    }
+
+    function closePopup(e: MouseEvent) {
+      if (filterPopup && e.target === filterPopup) {
+        filterPopup.classList.remove('show');
+      }
+    }
+
+    function filterFeats() {
+      const searchTerm = searchInput?.value.toLowerCase() || '';
+      const selectedTypes = Array.from(typeCheckboxes)
+        .filter((cb: Element) => (cb as HTMLInputElement).checked)
+        .map((cb: Element) => (cb as HTMLInputElement).value);
+
+      const selectedAbilities = Array.from(abilityCheckboxes)
+        .filter((cb: Element) => (cb as HTMLInputElement).checked)
+        .map((cb: Element) => (cb as HTMLInputElement).value);
+
+      let visibleCount = 0;
+      const totalCount = featCards.length;
+
+      featCards.forEach(card => {
+        const name = card.querySelector('h3')?.textContent?.toLowerCase() || '';
+        const nameEn = card.querySelector('.name-en')?.textContent?.toLowerCase() || '';
+        const type = (card as HTMLElement).dataset.featType || '';
+        const abilities = ((card as HTMLElement).dataset.abilities || '').split(',');
+
+        const matchesSearch = name.includes(searchTerm) || nameEn.includes(searchTerm);
+        const matchesType = selectedTypes.length === 0 || selectedTypes.includes(type);
+        const matchesAbilities = selectedAbilities.length === 0 || 
+          (abilities.length > 0 && abilities.some(ability => selectedAbilities.includes(ability)));
+
+        const isVisible = matchesSearch && matchesType && matchesAbilities;
+        (card as HTMLElement).style.display = isVisible ? 'block' : 'none';
+        
+        if (isVisible) {
+          visibleCount++;
+        }
+      });
+      
+      // Update counter
+      if (featsCounter) {
+        featsCounter.textContent = `${visibleCount}/${totalCount}`;
+      }
+      
+      // Update clear button visibility
+      if (clearSearchButton) {
+        clearSearchButton.style.display = searchTerm ? 'flex' : 'none';
+      }
+      
+      saveFilters();
+      updateFilterCount();
+    }
+
+    // Reset all filters
+    function resetFilters() {
+      document.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+        (cb as HTMLInputElement).checked = false;
+      });
+      localStorage.removeItem('featFilters');
+      filterFeats();
+    }
+
+    filterButton?.addEventListener('click', togglePopup);
+    closeButton?.addEventListener('click', togglePopup);
+    filterPopup?.addEventListener('click', closePopup);
+    searchInput?.addEventListener('input', filterFeats);
+    
+    // Clear search functionality
+    clearSearchButton?.addEventListener('click', () => {
+      if (searchInput) {
+        searchInput.value = '';
+        filterFeats();
+      }
+    });
+    
+    // Add event listeners for filter checkboxes using event delegation
+    filterPopup?.addEventListener('change', (e) => {
+      const target = e.target as HTMLInputElement;
+      if (target.type === 'checkbox') {
+        filterFeats();
+      }
+    });
+    
+    // Reset filters button
+    const resetButton = document.getElementById('reset-filters');
+    resetButton?.addEventListener('click', resetFilters);
+    
+    // Initialize
+    loadFilters();
+    filterFeats(); // Initial count
+  }
+
+  document.addEventListener('DOMContentLoaded', initializeFilters);
+</script>
+
+<style>
+  .content {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .search-container {
+    margin: 2rem 0;
+    position: relative;
+  }
+
+  .search-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+
+  .search-input-container {
+    position: relative;
+    flex: 1;
+    max-width: 400px;
+  }
+
+  .search-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    padding-right: 5rem;
+    border: 1px solid var(--card-border);
+    border-radius: 0.5rem;
+    background: var(--card-bg);
+    color: var(--text);
+    font-size: 1rem;
+  }
+
+  .feats-counter {
+    position: absolute;
+    right: 3rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text);
+    opacity: 0.6;
+    font-size: 0.9rem;
+    pointer-events: none;
+    background: var(--card-bg);
+    padding: 0 0.25rem;
+    z-index: 1;
+  }
+
+  .clear-search-button {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 1.2rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    opacity: 0.6;
+    transition: all 0.2s;
+  }
+
+  .clear-search-button:hover {
+    background: var(--nav-hover-bg);
+    opacity: 1;
+  }
+
+  .filter-button {
+    position: relative;
+    padding: 0.75rem 1rem;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 0.5rem;
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+  }
+
+  .filter-button:hover {
+    background: var(--nav-hover-bg);
+  }
+
+  .filter-button.has-filters {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+  }
+
+  .filter-icon {
+    font-size: 1.2rem;
+  }
+
+  .filter-count {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: #ef4444;
+    color: white;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .filter-popup {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+  }
+
+  .filter-popup.show {
+    display: block;
+  }
+
+  .filter-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: var(--card-bg);
+    padding: 2rem;
+    border-radius: 0.5rem;
+    min-width: 400px;
+    max-width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    border: 1px solid var(--card-border);
+    box-shadow: var(--card-shadow);
+  }
+
+  .filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--card-border);
+  }
+
+  .filter-header h3 {
+    margin: 0;
+    color: var(--primary);
+  }
+
+  .close-button {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--text);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+  }
+
+  .close-button:hover {
+    background: var(--nav-hover-bg);
+  }
+
+  .filter-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .filter-section:last-child {
+    margin-bottom: 2rem;
+  }
+
+  .filter-section h4 {
+    color: var(--primary);
+    margin-bottom: 0.75rem;
+    font-size: 1rem;
+  }
+
+  .checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background: var(--background);
+    border-radius: 0.25rem;
+    margin-top: 0.5rem;
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 0.25rem;
+  }
+
+  .checkbox-label:hover {
+    background: var(--nav-hover-bg);
+  }
+
+  .filter-actions {
+    display: flex;
+    justify-content: center;
+    padding-top: 1rem;
+    border-top: 1px solid var(--card-border);
+  }
+
+  .reset-button {
+    padding: 0.75rem 1.5rem;
+    background: var(--background);
+    border: 1px solid var(--card-border);
+    border-radius: 0.5rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .reset-button:hover {
+    background: var(--nav-hover-bg);
+  }
+
+  .feats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+  }
+
+  .feat-card {
+    background: var(--card-bg);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    box-shadow: var(--card-shadow);
+    border: 1px solid var(--card-border);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s;
+  }
+
+  .feat-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .feat-card h3 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+
+  .name-en {
+    color: var(--text);
+    opacity: 0.7;
+    font-size: 0.8em;
+  }
+</style>
