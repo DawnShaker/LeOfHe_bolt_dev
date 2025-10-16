@@ -5,21 +5,21 @@ import { classes } from '../../data/classes';
 import { spells } from '../../data/spells';
 
 export function getStaticPaths() {
-  return classes.map(classData => ({
-    params: { id: classData.id },
-    props: { classData }
-  }));
+return classes.map(classData => ({
+params: { id: classData.id },
+props: { classData }
+}));
 }
 
 const { classData } = Astro.props;
 
 // Функция для преобразования текстовой таблицы в структурированные данные
 function parseTableData(text: string) {
-  const rows = text.split('\n').filter(row => row.trim());
-  return rows.map(row => {
-    const [level, spells] = row.split('\t');
-    return { level, spells };
-  });
+const rows = text.split('\n').filter(row => row.trim());
+return rows.map(row => {
+const [level, spells] = row.split('\t');
+return { level, spells };
+});
 }
 ---
 
@@ -37,7 +37,7 @@ function parseTableData(text: string) {
         <select id="subclass-select">
           <option value="">Выберите подкласс</option>
           {classData.subclasses.map(subclass => (
-            <option value={subclass.id}>{subclass.name} [{subclass.nameEn}]</option>
+          <option value={subclass.id}>{subclass.name} [{subclass.nameEn}]</option>
           ))}
         </select>
       </div>
@@ -96,14 +96,14 @@ function parseTableData(text: string) {
       <p>Выберите один из следующих наборов:</p>
 
       {classData.equipment.default.map(choice => (
-        <div class="equipment-choice">
-          <h3>Вариант {choice.choice}</h3>
-          <ul>
-            {choice.items.map(item => (
-              <li>{item}</li>
-            ))}
-          </ul>
-        </div>
+      <div class="equipment-choice">
+        <h3>Вариант {choice.choice}</h3>
+        <ul>
+          {choice.items.map(item => (
+          <li>{item}</li>
+          ))}
+        </ul>
+      </div>
       ))}
     </div>
 
@@ -115,38 +115,37 @@ function parseTableData(text: string) {
     <div id="features-container" class="class-features">
       <h2>Умения класса</h2>
       {classData.features.map(feature => (
-        <div class="feature">
-          <div class="feature-header">
-            <h3>{feature.name}</h3>
-            <span class="feature-level">{feature.level} уровень</span>
-          </div>
-          <div class="feature-description">
-            {feature.description.split('\n').map(paragraph => (
-              <p set:html={paragraph}></p>
-            ))}
-            
-            {feature.collapsible && (
-              <div class="collapsible-content">
-                {feature.collapsible.map(item => (
-                  <details class="collapsible-item">
-                    <summary>{item.title}</summary>
-                    <div class="collapsible-description">
-                      {item.description.split('\n').map(paragraph => (
-                        <p>{paragraph}</p>
-                      ))}
-                    </div>
-                  </details>
-                ))}
-              </div>
-            )}
-          </div>
+      <div class="feature">
+        <div class="feature-header">
+          <h3>{feature.name}</h3>
+          <span class="feature-level">{feature.level} уровень</span>
         </div>
+        <div class="feature-description">
+          {feature.description.split('\n').map(paragraph => (
+            <p>{paragraph}</p>
+          ))}
+          
+          {feature.collapsible && (
+            <div class="collapsible-content">
+              {feature.collapsible.map(item => (
+                <details class="collapsible-item">
+                  <summary>{item.title}</summary>
+                  <div class="collapsible-description">
+                    {item.description.split('\n').map(paragraph => (
+                      <p>{paragraph}</p>
+                    ))}
+                  </div>
+                </details>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
       ))}
     </div>
 
-    <!-- Контейнер всплывающего окна заклинания -->
     <div id="spell-tooltip" class="hidden"></div>
-
+    <!-- Template для создания элементов способностей -->
     <template id="feature-template">
       <div class="feature">
         <div class="feature-header">
@@ -157,6 +156,7 @@ function parseTableData(text: string) {
       </div>
     </template>
 
+    <!-- Scroll to top button -->
     <button id="scroll-to-top" class="scroll-to-top" aria-label="Прокрутить наверх">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="m18 15-6-6-6 6"/>
@@ -166,7 +166,7 @@ function parseTableData(text: string) {
 </Layout>
 
 <script define:vars={{ classData }}>
-  import { spells } from '../../data/spells';
+import { spells } from '../../data/spells';
 
   document.addEventListener('DOMContentLoaded', () => {
     const subclassSelect = document.getElementById('subclass-select');
@@ -177,59 +177,67 @@ function parseTableData(text: string) {
     const tooltip = document.getElementById('spell-tooltip');
     let currentSubclass = null;
 
-    // --- ФУНКЦИИ ИЗ ОРИГИНАЛА (создание таблиц, подклассов, скролл и т.д.) ---
     function createTableElement(tableText) {
       const rows = tableText.split('\n').filter(row => row.trim());
       const table = document.createElement('table');
       table.className = 'spell-table';
 
+      // Check if this is a header-data table format
       const hasHeaders = rows.length > 1 && (
-        rows[0].includes('\t') ||
+        rows[0].includes('\t') || 
         rows[0].split(/\s{2,}/).length > 1
       );
 
       if (hasHeaders) {
+        // Create table header
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        const headers = rows[0].includes('\t')
-          ? rows[0].split('\t')
+        
+        const headers = rows[0].includes('\t') 
+          ? rows[0].split('\t') 
           : rows[0].split(/\s{2,}/);
-
+        
         headers.forEach(header => {
           const th = document.createElement('th');
           th.textContent = header.trim();
           headerRow.appendChild(th);
         });
+        
         thead.appendChild(headerRow);
         table.appendChild(thead);
-
+        
+        // Create table body
         const tbody = document.createElement('tbody');
         rows.slice(1).forEach(row => {
           const tr = document.createElement('tr');
-          const cells = row.includes('\t')
-            ? row.split('\t')
+          const cells = row.includes('\t') 
+            ? row.split('\t') 
             : row.split(/\s{2,}/);
-
+          
           cells.forEach(cell => {
             const td = document.createElement('td');
             td.textContent = cell.trim();
             tr.appendChild(td);
           });
+          
           tbody.appendChild(tr);
         });
         table.appendChild(tbody);
       } else {
+        // Fallback for simple row-based tables
         const tbody = document.createElement('tbody');
         rows.forEach(row => {
           const tr = document.createElement('tr');
-          const cells = row.includes('\t')
-            ? row.split('\t')
+          const cells = row.includes('\t') 
+            ? row.split('\t') 
             : row.split(/\s{2,}/);
+          
           cells.forEach(cell => {
             const td = document.createElement('td');
             td.textContent = cell.trim();
             tr.appendChild(td);
           });
+          
           tbody.appendChild(tr);
         });
         table.appendChild(tbody);
@@ -241,34 +249,37 @@ function parseTableData(text: string) {
     function createFeatureElement(feature, isSubclassFeature = false) {
       const template = featureTemplate.content.cloneNode(true);
       const featureElement = template.querySelector('.feature');
-
+      
       if (isSubclassFeature) {
         featureElement.classList.add('subclass-feature');
       }
-
+      
       featureElement.querySelector('h3').textContent = feature.name;
       featureElement.querySelector('.feature-level').textContent = `${feature.level} уровень`;
+      
       const descriptionContainer = featureElement.querySelector('.feature-description');
-
+      
       if (feature.collapsible) {
         const collapsibleContent = document.createElement('div');
         collapsibleContent.className = 'collapsible-content';
-
+        
         feature.collapsible.forEach(item => {
           const details = document.createElement('details');
           details.className = 'collapsible-item';
-
+          
           const summary = document.createElement('summary');
           summary.textContent = item.title;
           details.appendChild(summary);
-
+          
           const description = document.createElement('div');
           description.className = 'collapsible-description';
-
+          
           if (item.tableData) {
+            // Create table from structured data
             const table = document.createElement('table');
             table.className = 'spell-table';
-
+            
+            // Create header
             const thead = document.createElement('thead');
             const headerRow = document.createElement('tr');
             item.tableData.headers.forEach(header => {
@@ -278,7 +289,8 @@ function parseTableData(text: string) {
             });
             thead.appendChild(headerRow);
             table.appendChild(thead);
-
+            
+            // Create body
             const tbody = document.createElement('tbody');
             item.tableData.rows.forEach(row => {
               const tr = document.createElement('tr');
@@ -290,20 +302,21 @@ function parseTableData(text: string) {
               tbody.appendChild(tr);
             });
             table.appendChild(tbody);
-
+            
             description.appendChild(table);
           } else {
+            // Regular text content
             item.description.split('\n').forEach(paragraph => {
               const p = document.createElement('p');
               p.textContent = paragraph;
               description.appendChild(p);
             });
           }
-
+          
           details.appendChild(description);
           collapsibleContent.appendChild(details);
         });
-
+        
         descriptionContainer.appendChild(collapsibleContent);
       } else if (feature.name.toLowerCase().includes('таблица')) {
         const table = createTableElement(feature.description);
@@ -326,20 +339,30 @@ function parseTableData(text: string) {
       if (subclassId) {
         const subclass = classData.subclasses.find(s => s.id === subclassId);
         if (subclass) {
+          // Get all levels where subclass has features
           const subclassLevels = new Set(subclass.features.map(f => f.level));
+          
+          // Filter out base class features that are replaced by subclass features
           features = features.filter(f => {
+            // Keep feature if level doesn't have subclass features
             if (!subclassLevels.has(f.level)) return true;
-            if (f.name.includes('Подкласс') || f.name.includes('Круг') ||
+            
+            // Remove the subclass selection feature
+            if (f.name.includes('Подкласс') || f.name.includes('Круг') || 
                 f.name.includes('Домен') || f.name.includes('Путь')) {
               return false;
             }
+            
             return true;
           });
+          
+          // Add subclass features
           features = [...features, ...subclass.features];
         }
       }
 
       features.sort((a, b) => a.level - b.level);
+
       const title = featuresContainer.querySelector('h2');
       featuresContainer.innerHTML = '';
       featuresContainer.appendChild(title);
@@ -353,76 +376,127 @@ function parseTableData(text: string) {
       });
     }
 
-    // Инициализация подсказок-заклинаний (hover preview)
-    function initializeSpellTooltips() {
-      const links = document.querySelectorAll('a[data-spell-id]');
-      links.forEach(link => {
-        link.addEventListener('mouseenter', event => {
-          const id = event.target.dataset.spellId;
-          const spell = spells.find(s => s.id === id);
-          if (!spell) return;
+    subclassSelect?.addEventListener('change', (e) => {
+      const subclassId = e.target.value;
+      const subclass = classData.subclasses.find(s => s.id === subclassId);
+      
+      // Save subclass selection to localStorage
+      if (subclassId) {
+        localStorage.setItem(`class-${classData.id}-subclass`, subclassId);
+      } else {
+        localStorage.removeItem(`class-${classData.id}-subclass`);
+      }
 
-          tooltip.innerHTML = `
-            <h3>${spell.name} <span style="opacity:0.6;">[${spell.nameEn}]</span></h3>
-            <p><strong>${spell.level === 'cantrip' ? 'Заговор' : spell.level + ' уровень'}</strong>, ${spell.school}</p>
-            <p><em>${spell.castingTime}</em> — ${spell.range}</p>
-            <div>${spell.description}</div>
-          `;
+      // Update URL with subclass selection
+      const newUrl = subclassId 
+        ? `/classes/${classData.id}?subclass=${subclassId}`
+        : `/classes/${classData.id}`;
+      window.history.pushState({ subclassId }, '', newUrl);
+      if (classLore && baseLore) {
+        if (subclass) {
+          classLore.innerHTML = subclass.description.split('\n').map(paragraph =>
+            `<p>${paragraph}</p>`
+          ).join('');
+          baseLore.style.display = 'block';
+        } else {
+          classLore.innerHTML = classData.description.split('\n').map(paragraph =>
+            `<p>${paragraph}</p>`
+          ).join('');
+          baseLore.style.display = 'none';
+        }
+      }
 
-          const rect = event.target.getBoundingClientRect();
-          tooltip.style.top = `${rect.bottom + window.scrollY + 6}px`;
-          tooltip.style.left = `${rect.left + window.scrollX}px`;
-          tooltip.classList.remove('hidden');
-        });
-
-        link.addEventListener('mouseleave', () => {
-          tooltip.classList.add('hidden');
-        });
+      updateFeatures(subclassId);
+    });
+    
+    // Load saved subclass selection on page load
+    function loadSavedSubclass() {
+      // Check URL parameters first, then localStorage
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlSubclass = urlParams.get('subclass');
+      const savedSubclass = urlSubclass || localStorage.getItem(`class-${classData.id}-subclass`);
+      
+      if (savedSubclass && subclassSelect) {
+        subclassSelect.value = savedSubclass;
+        // Trigger change event to update the display
+        subclassSelect.dispatchEvent(new Event('change'));
+      }
+    }
+    
+    // Handle browser back/forward buttons
+    window.addEventListener('popstate', (event) => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const subclassId = urlParams.get('subclass') || '';
+      
+      if (subclassSelect) {
+        subclassSelect.value = subclassId;
+        // Trigger change event to update the display
+        subclassSelect.dispatchEvent(new Event('change'));
+      }
+    });
+    
+    // Save scroll position periodically and on page unload
+    function saveScrollPosition() {
+      localStorage.setItem(`class-${classData.id}-scroll`, window.scrollY.toString());
+    }
+    
+    // Load saved scroll position
+    function loadScrollPosition() {
+      const savedScroll = localStorage.getItem(`class-${classData.id}-scroll`);
+      if (savedScroll) {
+        // Use setTimeout to ensure DOM is fully rendered
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedScroll));
+        }, 100);
+      }
+    }
+    
+    // Save scroll position on scroll (throttled)
+    let scrollTimeout;
+    window.addEventListener('scroll', () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(saveScrollPosition, 150);
+    });
+    
+    // Save scroll position before page unload
+    window.addEventListener('beforeunload', saveScrollPosition);
+    
+    // Initialize saved states
+    loadSavedSubclass();
+    loadScrollPosition();
+    
+    // Scroll to top button functionality
+    const scrollToTopButton = document.getElementById('scroll-to-top');
+    
+    function toggleScrollButton() {
+      if (scrollToTopButton) {
+        if (window.scrollY > 300) {
+          scrollToTopButton.classList.add('visible');
+        } else {
+          scrollToTopButton.classList.remove('visible');
+        }
+      }
+    }
+    
+    function scrollToTop() {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
       });
     }
-
-    // запуск функций
-    initializeSpellTooltips();
-
-    // остальные функции (скролл, загрузка подкласса и т.д.) остаются как в оригинале
+    
+    // Show/hide button based on scroll position
+    window.addEventListener('scroll', toggleScrollButton);
+    
+    // Scroll to top when button is clicked
+    scrollToTopButton?.addEventListener('click', scrollToTop);
+    
+    // Initial check for button visibility
+    toggleScrollButton();
   });
 </script>
 
 <style>
-  /* --- Стили только для всплывашки заклинаний --- */
-  #spell-tooltip {
-    position: absolute;
-    z-index: 9999;
-    background: var(--card-bg, #1e1e1e);
-    color: var(--text, #f5f5f5);
-    border: 1px solid var(--card-border, #444);
-    border-radius: 0.5rem;
-    padding: 1rem;
-    max-width: 350px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
-    transition: opacity 0.15s ease-in-out;
-  }
-
-  #spell-tooltip.hidden {
-    display: none;
-  }
-
-  #spell-tooltip h3 {
-    color: var(--primary, #8cf);
-    margin-bottom: 0.5rem;
-    font-size: 1.1rem;
-  }
-
-  #spell-tooltip p {
-    margin-bottom: 0.3rem;
-    line-height: 1.4;
-  }
-
-  #spell-tooltip div {
-    margin-top: 0.5rem;
-    font-size: 0.95rem;
-    line-height: 1.5;
-  }
   .content {
     max-width: 1200px;
     margin: 0 auto;
