@@ -144,7 +144,6 @@ function parseTableData(text: string) {
       ))}
     </div>
 
-    <div id="spell-tooltip" class="hidden" role="dialog" aria-hidden="true"></div>
     <!-- Template для создания элементов способностей -->
     <template id="feature-template">
       <div class="feature">
@@ -167,6 +166,7 @@ function parseTableData(text: string) {
 
 <script define:vars={{ classData }}>
 import { spells } from '../../data/spells';
+import { SpellTooltip } from '../../utils/spellTooltip';
 
   document.addEventListener('DOMContentLoaded', () => {
     const subclassSelect = document.getElementById('subclass-select');
@@ -177,6 +177,17 @@ import { spells } from '../../data/spells';
     const tooltip = document.getElementById('spell-tooltip');
     let currentSubclass = null;
 
+    // Initialize SpellTooltip
+    const spellTooltip = new SpellTooltip({
+      offsetX: 16,
+      offsetY: 16,
+      fadeInDelay: 300,
+      fadeOutDelay: 150
+    });
+    if (tooltip) {
+      spellTooltip.init(tooltip, spells);
+    }
+
     // --- Utility for linkifying spell names inside paragraphs ---
     function escapeRegExp(string) {
       return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -186,153 +197,14 @@ import { spells } from '../../data/spells';
     const SPELLS_FOR_LINKIFY = [...spells].sort((a, b) => b.name.length - a.name.length);
 
     function linkifyText(text) {
-      // For safety, we'll treat `text` as plain text originally; but we want to allow some HTML in descriptions
-      // The descriptions coming from features are plain strings; we will escape them minimally if needed.
       let linked = text;
       SPELLS_FOR_LINKIFY.forEach(spell => {
         const name = spell.name;
-        // Create a regex that matches the exact name (global), case-sensitive (Russian names exact)
         const re = new RegExp(escapeRegExp(name), 'g');
-        // Replace with anchor that has dataset.spellId
-        // Use a unique class for delegation
         linked = linked.replace(re, `<a href="/spells" class="spell-link" data-spell-id="${spell.id}" data-spell-name="${spell.name}">${spell.name}</a>`);
       });
       return linked;
     }
-
-    // --- Tooltip rendering ---
-    function renderTooltipContent(spell) {
-      if (!spell) return '<div>Заклинание не найдено</div>';
-      const components = [];
-      if (spell.components?.verbal) components.push('В');
-      if (spell.components?.somatic) components.push('С');
-      if (spell.components?.material) components.push(`М (${spell.components.material})`);
-      const compText = components.join(', ');
-
-      const levelText = spell.level === 'cantrip' ? 'Заговор' : `${spell.level} уровень`;
-      // Short card HTML
-      return `
-        <div class="tooltip-card">
-          <div class="tooltip-header">
-            <div class="tooltip-title">${spell.name} <span class="name-en">[${spell.nameEn}]</span></div>
-            <div class="tooltip-source">${spell.source?.book ? `${spell.source.book}, стр. ${spell.source.page}` : ''}</div>
-          </div>
-          <div class="tooltip-meta">
-            <span class="tooltip-level">${levelText}</span>
-            <span class="tooltip-school">${spell.school}</span>
-          </div>
-          <div class="tooltip-attrs">
-            <div><strong>Время:</strong> ${spell.castingTime}</div>
-            <div><strong>Дистанция:</strong> ${spell.range}</div>
-            <div><strong>Компоненты:</strong> ${compText}</div>
-            <div><strong>Длительность:</strong> ${spell.duration}</div>
-          </div>
-          <div class="tooltip-desc">${spell.description}</div>
-        </div>
-      `;
-    }
-
-    function showTooltipAt(spellId, clientX, clientY) {
-      const spell = spells.find(s => s.id === spellId);
-      if (!tooltip) return;
-      tooltip.innerHTML = renderTooltipContent(spell);
-      tooltip.style.display = 'block';
-      tooltip.setAttribute('aria-hidden', 'false');
-
-      // Default positioning: slightly offset from cursor
-      const offset = { x: 16, y: 16 };
-      positionTooltip(clientX + offset.x, clientY + offset.y);
-    }
-
-    function positionTooltip(x, y) {
-      if (!tooltip) return;
-      const rect = tooltip.getBoundingClientRect();
-      const vpW = window.innerWidth;
-      const vpH = window.innerHeight;
-
-      // Default: place tooltip's top-left at (x, y)
-      let left = x;
-      let top = y;
-
-      // If going out of right edge, shift left
-      if (left + rect.width + 12 > vpW) {
-        left = vpW - rect.width - 12;
-      }
-      // If going out of bottom edge, shift up
-      if (top + rect.height + 12 > vpH) {
-        top = Math.max(12, vpH - rect.height - 12);
-      }
-      // Avoid negative
-      left = Math.max(8, left);
-      top = Math.max(8, top);
-
-      tooltip.style.left = `${left}px`;
-      tooltip.style.top = `${top}px`;
-    }
-
-    function hideTooltip() {
-      if (!tooltip) return;
-      tooltip.style.display = 'none';
-      tooltip.setAttribute('aria-hidden', 'true');
-      tooltip.innerHTML = '';
-    }
-
-    // --- Delegated event handlers for spell links ---
-    let tooltipHoverTarget = null; // element that triggered the tooltip
-    document.addEventListener('mouseover', (e) => {
-      const target = e.target.closest?.(?.call ? e.target.closest('.spell-link') : null) || e.target.closest('.spell-link');
-      // Fallback for older browsers: use loop
-      // but `closest` should exist in modern browsers; keep simple
-      const el = e.target.closest ? e.target.closest('.spell-link') : (function find(el0){
-        let el1 = el0;
-        while (el1) {
-          if (el1.classList && el1.classList.contains && el1.classList.contains('spell-link')) return el1;
-          el1 = el1.parentElement;
-        }
-        return null;
-      })(e.target);
-
-      if (el) {
-        tooltipHoverTarget = el;
-        const spellId = el.dataset.spellId;
-        if (spellId) {
-          // show tooltip immediately
-          showTooltipAt(spellId, e.clientX, e.clientY);
-        }
-      }
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      // If tooltip visible and hovered target exists, reposition
-      if (tooltipHoverTarget && tooltip && tooltip.style.display === 'block') {
-        positionTooltip(e.clientX + 16, e.clientY + 16);
-      }
-    });
-
-    document.addEventListener('mouseout', (e) => {
-      const related = e.relatedTarget;
-      // If mouse left a .spell-link and not entering the tooltip itself, hide
-      const leftEl = e.target.closest ? e.target.closest('.spell-link') : null;
-      if (leftEl) {
-        // If related is inside tooltip or is another .spell-link, keep or update accordingly
-        if (related && (related === tooltip || tooltip.contains(related) || (related.closest && related.closest('.spell-link')))) {
-          // do nothing
-          return;
-        }
-        // otherwise hide
-        tooltipHoverTarget = null;
-        hideTooltip();
-      }
-    });
-
-    // Keep tooltip visible when hovering the tooltip itself
-    tooltip?.addEventListener('mouseenter', () => {
-      // keep visible
-    });
-    tooltip?.addEventListener('mouseleave', () => {
-      tooltipHoverTarget = null;
-      hideTooltip();
-    });
 
     // --- Feature element creation with linkification ---
     function createTableElement(tableText) {
@@ -1070,88 +942,18 @@ import { spells } from '../../data/spells';
     transform: translateY(0);
   }
 
-  /* Spell link styling */
-  .spell-link {
-    color: var(--primary);
-    text-decoration: underline;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  .spell-link:hover {
-    text-decoration: none;
-  }
-
-  /* Tooltip */
-  #spell-tooltip {
-    position: fixed;
-    display: none;
-    z-index: 1500;
-    max-width: 520px;
-    width: auto;
-    background: var(--card-bg);
-    color: var(--text);
-    border: 1px solid rgba(255,255,255,0.06);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.6);
-    padding: 0.75rem;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    line-height: 1.4;
-    pointer-events: auto;
-  }
-
-  #spell-tooltip .tooltip-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    border-bottom: 1px solid var(--card-border);
-    padding-bottom: 0.4rem;
-    margin-bottom: 0.5rem;
-  }
-
-  #spell-tooltip .tooltip-title {
-    font-weight: 700;
-    color: var(--primary);
-  }
-
-  #spell-tooltip .tooltip-meta {
-    display: flex;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--text);
-    opacity: 0.9;
-    margin-bottom: 0.5rem;
-  }
-
-  #spell-tooltip .tooltip-attrs div {
-    font-size: 0.85rem;
-    margin-bottom: 0.25rem;
-  }
-
-  #spell-tooltip .tooltip-desc {
-    margin-top: 0.5rem;
-  }
-
   /* Responsive */
   @media (max-width: 768px) {
     .feature-description table,
     .collapsible-description table {
       font-size: 0.9rem;
     }
-    
+
     .feature-description table th,
     .feature-description table td,
     .collapsible-description table th,
     .collapsible-description table td {
       padding: 0.5rem;
-    }
-
-    #spell-tooltip {
-      max-width: calc(100vw - 32px);
-      left: 16px !important;
-      right: 16px !important;
-      top: auto !important;
-      bottom: 16px !important;
     }
   }
 </style>
