@@ -446,13 +446,18 @@ import { SpellTooltip } from '../../utils/spellTooltip';
       const urlParams = new URLSearchParams(window.location.search);
       const urlSubclass = urlParams.get('subclass');
       const savedSubclass = urlSubclass || localStorage.getItem(`class-${classData.id}-subclass`);
-      
+
       if (savedSubclass && subclassSelect) {
         subclassSelect.value = savedSubclass;
-        // Trigger change event to update the display
-        subclassSelect.dispatchEvent(new Event('change'));
+        const subclass = classData.subclasses.find(s => s.id === savedSubclass);
+        if (classLore && baseLore && subclass) {
+          classLore.innerHTML = subclass.description.split('\n').map(paragraph =>
+            `<p>${paragraph}</p>`
+          ).join('');
+          baseLore.style.display = 'block';
+        }
+        updateFeatures(savedSubclass);
       } else {
-        // If no subclass selected, render default features (with linkify)
         updateFeatures('');
       }
     }
