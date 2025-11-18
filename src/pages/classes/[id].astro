@@ -99,9 +99,13 @@ function parseTableData(text: string) {
         <div class="equipment-choice">
           <h3>Вариант {choice.choice}</h3>
           <ul>
-            {choice.items.map(item => (
-              <li>{item}</li>
-            ))}
+            {choice.items.map(item => {
+              let content = item;
+              if (item === 'Секира') {
+                content = <a href="/items/greataxe">{item}</a>;
+              }
+              return <li>{content}</li>;
+            })}
           </ul>
         </div>
       ))}
@@ -656,6 +660,17 @@ import { SpellTooltip } from '../../utils/spellTooltip';
 
   .equipment-choice li {
     margin-bottom: 0.5rem;
+  }
+
+  .equipment-choice a {
+    color: var(--primary);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .equipment-choice a:hover {
+    text-decoration: underline;
+    opacity: 0.8;
   }
 
   dl {
